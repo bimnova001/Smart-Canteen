@@ -30,7 +30,8 @@ else:
         "./SIM_IMG/1.jpg"
     )
     logger.info("Using simulated image for video stream.")
-
+    
+#food and tables เราจะ simก่อน
 data = {
     "people":0,
     "tables":20,

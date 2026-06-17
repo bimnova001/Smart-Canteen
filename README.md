@@ -21,3 +21,8 @@
 9. Support future integration with additional AI models and new hardware devices.
 
 10. Implement automated testing and validation to improve system reliability and maintainability.
+
+
+## Develop && TEST on
+    OS: WINDOW 11 23H2
+    PYTHON : 3.11.9

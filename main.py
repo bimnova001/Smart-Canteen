@@ -51,7 +51,7 @@ def camera_stream():
                     break
             else:
                 frame = sim_image.copy()
-            results = model(frame)
+            results = model(frame, imgsz=1280)
             people = 0
             for result in results:
                 boxes = result.boxes

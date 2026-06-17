@@ -11,12 +11,13 @@ from service.llm import analyze_canteen
 from service.data import collect_data, scheduler, save_hourly
 from service.logger import logger
 
+#อันนี่เป็นการ SIM 
 USE_CAMERA = False
 
 
 app = FastAPI()
 try :
-    model = YOLO("./model_cache/yolov8n.pt")
+    model = YOLO("./model_cache/yolo11m.pt")
 except Exception as e:
     logger.error(f"Error loading YOLO model: {e}")
 
@@ -42,85 +43,88 @@ data = {
 
 
 def camera_stream():
-
-
-    while True:
-        if USE_CAMERA:
-            ret, frame = camera.read()
-            if not ret:
-                break
-        else:
-            frame = sim_image.copy()
-        results = model(frame)
-        people = 0
-        for result in results:
-            boxes = result.boxes
-            for box in boxes:
-                cls = int(box.cls[0])
-                conf = float(box.conf[0])
-                name = model.names[cls]
-                # detect person only
-                if name == "person":
-                    people += 1
-                    x1,y1,x2,y2 = map(
-                        int,
-                        box.xyxy[0]
-                    )
-                    cv2.rectangle(
-                        frame,
-                        (x1,y1),
-                        (x2,y2),
-                        (0,255,0),
-                        2
-                    )
-                    cv2.putText(
-                        frame,
-                        f"Person {conf:.2f}",
-                        (x1,y1-10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (0,255,0),
-                        2
-                    )
-        # simulation
-        tables = 20
-        food = random.randint(
-            30,
-            80
-        )
-
-        occupancy = min(
-            (people / tables)*100,
-            100
-        )
-
-
-
-        data.update({
-            "people":people,
-            "tables":tables,
-            "food":food,
-            "occupancy":round(
-                occupancy,
-                2
-            ),
-            "time":time.strftime(
-                "%H:%M"
+    try :
+        while True:
+            if USE_CAMERA:
+                ret, frame = camera.read()
+                if not ret:
+                    break
+            else:
+                frame = sim_image.copy()
+            results = model(frame)
+            people = 0
+            for result in results:
+                boxes = result.boxes
+                for box in boxes:
+                    cls = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    name = model.names[cls]
+                    # detect person only
+                    if name == "person":
+                        people += 1
+                        x1,y1,x2,y2 = map(
+                            int,
+                            box.xyxy[0]
+                        )
+                        cv2.rectangle(
+                            frame,
+                            (x1,y1),
+                            (x2,y2),
+                            (0,255,0),
+                            2
+                        )
+                        cv2.putText(
+                            frame,
+                            f"Person {conf:.2f}",
+                            (x1,y1-10),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5,
+                            (0,255,0),
+                            2
+                        )
+            # simulation
+            tables = 20
+            food = random.randint(
+                30,
+                80
             )
-        })
 
-        collect_data(data)
-        _, buffer = cv2.imencode(
-            ".jpg",
-            frame
-        )
-        frame_bytes = buffer.tobytes()
-        yield (
-            b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n"
-            + frame_bytes +
-            b"\r\n"
-        )
+            occupancy = min(
+                (people / tables)*100,
+                100
+            )
+
+
+
+            data.update({
+                "people":people,
+                "tables":tables,
+                "food":food,
+                "occupancy":round(
+                    occupancy,
+                    2
+                ),
+                "time":time.strftime(
+                    "%H:%M"
+                )
+            })
+
+            collect_data(data)
+            _, buffer = cv2.imencode(
+                ".jpg",
+                frame
+            )
+            frame_bytes = buffer.tobytes()
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n"
+                + frame_bytes +
+                b"\r\n"
+            )
+    except Exception as e:
+        logger.error(f"Error in camera stream: {e}")
+    finally:
+        logger.info("Camera stream stopped.")
 
 
 @app.get("/history")
@@ -147,6 +151,7 @@ def startup_event():
         daemon=True
     ).start()
 
+
 @app.get("/video")
 def video():
     return StreamingResponse(
@@ -167,7 +172,27 @@ def ai_analyze():
         "input":data,
         "analysis":result
     }
-    
+
+def runnodejs():
+    try:
+        subprocess.Popen(
+            ["node", "web/server.js"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=True
+        )
+        logger.info("Node.js server started successfully.")
+    except Exception as e:
+        logger.error(f"Error starting Node.js server: {e}")
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    try :
+        runnodejs()
+        print("Node.js server started at localhost:3000")
+    except Exception as e:
+        logger.error(f"Error running Node.js server: {e}")
+    try :  
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    except Exception as e:
+        logger.error(f"Error running FastAPI server: {e}")
+    

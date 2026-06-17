@@ -24,5 +24,6 @@
 
 
 ## Develop && TEST on
-    OS: WINDOW 11 23H2
+    OS     : WINDOW 11 23H2
     PYTHON : 3.11.9
+    NODEJS : v20.17.0
